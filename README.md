@@ -33,8 +33,8 @@
 
 | Repository | What I Contributed | Tech Stack | Status |
 |---|---|---|---|
+| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Python, Flask | ✅ Merged |
 | [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
-| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Python / Flask | ✅ Merged |
 
 ### DevOps / Tooling
 
@@ -90,9 +90,9 @@
 
 | Repository | What I Contributed | Tech Stack | Status |
 |---|---|---|---|
-| [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
-| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Node.js / Backend | ✅ Merged |
+| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Python, Flask | ✅ Merged |
 | [iamdevdhanush/Devops](https://github.com/iamdevdhanush/Devops/pull/28) | CI: add ShellCheck and yamlint workflow | Shell, YAML, GitHub Actions | 🔄 Open PR |
+| [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
 
 ### Web Development
 
