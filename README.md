@@ -15,19 +15,32 @@
 ## 📁 Table of Contents
 
 - [By Technology](#-by-technology)
-  - [Frontend](#frontend)
   - [Backend](#backend)
   - [DevOps / Tooling](#devops--tooling)
+  - [Frontend](#frontend)
 - [By Contribution Type](#-by-contribution-type)
   - [Bug Fixes](#bug-fixes)
   - [Features](#features)
 - [By Domain](#-by-domain)
-  - [Web Development](#web-development)
   - [Developer Tools](#developer-tools)
+  - [Web Development](#web-development)
 
 ---
 
 ## 🛠️ By Technology
+
+### Backend
+
+| Repository | What I Contributed | Tech Stack | Status |
+|---|---|---|---|
+| [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
+| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Python / Flask | ✅ Merged |
+
+### DevOps / Tooling
+
+| Repository | What I Contributed | Tech Stack | Status |
+|---|---|---|---|
+| [iamdevdhanush/Devops](https://github.com/iamdevdhanush/Devops/pull/28) | CI: add ShellCheck and yamlint workflow | Shell, YAML, GitHub Actions | 🔄 Open PR |
 
 ### Frontend
 
@@ -42,19 +55,6 @@
 | [tubii2255/Tradebullwebsite](https://github.com/tubii2255/Tradebullwebsite/pull/6) | Added hamburger menu for mobile responsiveness | HTML, CSS, JS | ✅ Merged |
 | [CipherX0101/Game-Changing-Websites-Collection](https://github.com/CipherX0101/Game-Changing-Websites-Collection/pull/6) | Implemented a search functionality | JavaScript | ✅ Merged |
 | [CipherX0101/Game-Changing-Websites-Collection](https://github.com/CipherX0101/Game-Changing-Websites-Collection/pull/4) | Implemented a fully functional filtering system | JavaScript | ✅ Merged |
-
-### Backend
-
-| Repository | What I Contributed | Tech Stack | Status |
-|---|---|---|---|
-| [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
-| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Python / Flask | ✅ Merged |
-
-### DevOps / Tooling
-
-| Repository | What I Contributed | Tech Stack | Status |
-|---|---|---|---|
-| [iamdevdhanush/Devops](https://github.com/iamdevdhanush/Devops/pull/28) | CI: add ShellCheck and yamlint workflow | Shell, YAML, GitHub Actions | 🔄 Open PR |
 
 ---
 
@@ -86,6 +86,14 @@
 
 ## 🌐 By Domain
 
+### Developer Tools
+
+| Repository | What I Contributed | Tech Stack | Status |
+|---|---|---|---|
+| [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
+| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Node.js / Backend | ✅ Merged |
+| [iamdevdhanush/Devops](https://github.com/iamdevdhanush/Devops/pull/28) | CI: add ShellCheck and yamlint workflow | Shell, YAML, GitHub Actions | 🔄 Open PR |
+
 ### Web Development
 
 | Repository | What I Contributed | Tech Stack | Status |
@@ -99,14 +107,6 @@
 | [tubii2255/Tradebullwebsite](https://github.com/tubii2255/Tradebullwebsite/pull/6) | Added hamburger menu for mobile responsiveness | HTML, CSS, JS | ✅ Merged |
 | [CipherX0101/Game-Changing-Websites-Collection](https://github.com/CipherX0101/Game-Changing-Websites-Collection/pull/6) | Implemented search functionality | JavaScript | ✅ Merged |
 | [CipherX0101/Game-Changing-Websites-Collection](https://github.com/CipherX0101/Game-Changing-Websites-Collection/pull/4) | Implemented a fully functional filtering system | JavaScript | ✅ Merged |
-
-### Developer Tools
-
-| Repository | What I Contributed | Tech Stack | Status |
-|---|---|---|---|
-| [CipherX0101/Python-Programs](https://github.com/CipherX0101/Python-Programs/pull/2) | Fix: add a function that reads JSON safely | Python | ✅ Merged |
-| [devanprigent/article-manager](https://github.com/devanprigent/article-manager/pull/23) | Feat(backend): add structured logging throughout API | Node.js / Backend | ✅ Merged |
-| [iamdevdhanush/Devops](https://github.com/iamdevdhanush/Devops/pull/28) | CI: add ShellCheck and yamlint workflow | Shell, YAML, GitHub Actions | 🔄 Open PR |
 
 ---
 
