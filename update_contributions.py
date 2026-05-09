@@ -416,9 +416,9 @@ def generate_readme(prs):
     by_type   = defaultdict(list)
     by_domain = defaultdict(list)
 
-    frontend_prs = []
     backend_prs  = []
     devops_prs   = []
+    frontend_prs = []
     other_prs    = []
 
     for pr in prs:
@@ -466,9 +466,9 @@ def generate_readme(prs):
 ---
 
 ## 🛠️ By Technology
-{table_section("Frontend", frontend_prs)}
 {table_section("Backend", backend_prs)}
 {table_section("DevOps / Tooling", devops_prs)}
+{table_section("Frontend", frontend_prs)}
 {table_section("Other", other_prs)}
 
 ---
