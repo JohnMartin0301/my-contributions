@@ -1,0 +1,58 @@
+# ─────────────────────────────────────────────────────────────────
+# notify-issues.yml
+# ─────────────────────────────────────────────────────────────────
+# This workflow runs notify_issues.py every morning at 9:00 AM
+# Philippine time (1:00 AM UTC) and sends you an email digest
+# of new GitHub issues matching your contribution queries.
+#
+# WHERE TO PUT THIS FILE:
+#   .github/workflows/notify-issues.yml
+#   (same folder as your update-contributions.yml)
+# ─────────────────────────────────────────────────────────────────
+
+name: 🔔 Daily GitHub Issue Digest
+
+on:
+  # Runs every day at 1:00 AM UTC = 9:00 AM Philippine Time (UTC+8)
+  schedule:
+    - cron: "0 1 * * *"
+
+  # Also lets you trigger it manually anytime from the Actions tab
+  # Useful for testing before waiting until tomorrow morning
+  workflow_dispatch:
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # STEP 1: Download your repo files onto the virtual computer
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+
+      # STEP 2: Install Python
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # STEP 3: Install the 'requests' library our script needs
+      - name: 📦 Install dependencies
+        run: pip install requests
+
+      # STEP 4: Run the notifier script
+      # All 4 environment variables below come from GitHub Secrets
+      # (Settings → Secrets and variables → Actions → New repository secret)
+      #
+      # GITHUB_TOKEN   → automatically provided by GitHub, no setup needed
+      # GMAIL_SENDER   → your Gmail address (e.g. yourname@gmail.com)
+      # GMAIL_PASSWORD → your Gmail App Password (NOT your regular password)
+      # GMAIL_RECEIVER → where to send the digest (can be same as sender)
+      - name: 🚀 Run issue notifier
+        env:
+          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
+          GMAIL_SENDER:   ${{ secrets.GMAIL_SENDER }}
+          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
+          GMAIL_RECEIVER: ${{ secrets.GMAIL_RECEIVER }}
+        run: python notify_issues.py
