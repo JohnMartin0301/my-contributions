@@ -1,0 +1,90 @@
+{
+  "_readme": "Use this file to manually correct any auto-detected values for a specific PR.",
+  "_readme2": "The key format is always: 'owner/repo/pull/PR_NUMBER'",
+  "_readme3": "You can override: tech_stack, description, type, domain",
+  "_readme4": "Delete the 4 lines above starting with underscore if you want a clean file.",
+
+  "devanprigent/article-manager/pull/23": {
+    "tech_stack": "Python, Flask",
+    "description": "Feat(backend): add structured logging throughout API",
+    "type": "Feature",
+    "domain": "Developer Tools"
+  },
+
+  "iamdevdhanush/Devops/pull/28": {
+    "tech_stack": "Shell, YAML, GitHub Actions",
+    "description": "CI: add ShellCheck and yamlint workflow",
+    "type": "DevOps",
+    "domain": "Developer Tools"
+  },
+
+  "BetaCity/BetaCity.github.io/pull/2": {
+    "tech_stack": "HTML, CSS",
+    "description": "Fix navbar toggle button going off screen",
+    "type": "Bug Fix",
+    "domain": "Web Development"
+  },
+
+  "gonzalorportfolio/portfolio-page/pull/13": {
+    "tech_stack": "CSS, React",
+    "description": "Enhance About page responsiveness in App.css",
+    "type": "Feature",
+    "domain": "Web Development"
+  },
+
+  "gonzalorportfolio/portfolio-page/pull/14": {
+    "tech_stack": "CSS, React",
+    "description": "Enhanced navbar responsiveness",
+    "type": "Feature",
+    "domain": "Web Development"
+  },
+
+  "supriya46788/Research-Paper-Organizer/pull/454": {
+    "tech_stack": "HTML, CSS",
+    "description": "Fix footer consistency",
+    "type": "Bug Fix",
+    "domain": "Web Development"
+  },
+
+  "ErenYeager-rgb-242/pendulum-creation-center/pull/6": {
+    "tech_stack": "JavaScript, CSS",
+    "description": "Added a Software Engineering/Development style effect",
+    "type": "Feature",
+    "domain": "Web Development"
+  },
+
+  "CipherX0101/Landing-Page/pull/2": {
+    "tech_stack": "HTML, CSS",
+    "description": "Fix: make landing page fully responsive across all device sizes",
+    "type": "Bug Fix",
+    "domain": "Web Development"
+  },
+
+  "tubii2255/Tradebullwebsite/pull/6": {
+    "tech_stack": "HTML, CSS, JavaScript",
+    "description": "Feat: added hamburger menu for mobile responsiveness",
+    "type": "Feature",
+    "domain": "Web Development"
+  },
+
+  "CipherX0101/Game-Changing-Websites-Collection/pull/6": {
+    "tech_stack": "JavaScript",
+    "description": "Implemented a search functionality",
+    "type": "Feature",
+    "domain": "Developer Tools"
+  },
+
+  "CipherX0101/Game-Changing-Websites-Collection/pull/4": {
+    "tech_stack": "JavaScript",
+    "description": "Implemented a fully functional filtering system",
+    "type": "Feature",
+    "domain": "Developer Tools"
+  },
+
+  "CipherX0101/Python-Programs/pull/2": {
+    "tech_stack": "Python",
+    "description": "Fix: add a function that reads JSON safely",
+    "type": "Bug Fix",
+    "domain": "Developer Tools"
+  }
+}

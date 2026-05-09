@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────────
+# update-contributions.yml
+# ─────────────────────────────────────────────────────────────────
+# This is a GitHub Actions WORKFLOW FILE.
+#
+# Think of GitHub Actions as a robot that lives inside your repo.
+# This file tells that robot WHEN to wake up and WHAT to do.
+#
+# WHERE TO PUT THIS FILE:
+#   Your repo → .github/workflows/update-contributions.yml
+#   (You need to create the .github/workflows/ folders first)
+# ─────────────────────────────────────────────────────────────────
+
+name: 🔄 Auto-Update Contributions README
+
+# ─────────────────────────────────────────────
+# TRIGGER: When does this workflow run?
+# ─────────────────────────────────────────────
+on:
+
+  # 1. MANUALLY — you can also trigger it yourself anytime
+  #    Go to your repo → Actions tab → select this workflow → "Run workflow"
+  workflow_dispatch:
+
+  # 2. ON PUSH — also runs whenever you push any change to the main branch
+  #    Useful when you first set this up and want to test it immediately.
+  push:
+    branches:
+      - main
+
+# ─────────────────────────────────────────────
+# JOBS: What does the robot actually do?
+# A "job" is a sequence of steps run on a virtual computer.
+# ─────────────────────────────────────────────
+jobs:
+
+  update-readme:
+
+    # This tells GitHub: use a fresh Ubuntu Linux computer for this job.
+    # GitHub provides this computer for free — you don't pay for it.
+    runs-on: ubuntu-latest
+
+    # ── PERMISSIONS ──────────────────────────────────────────────
+    # We need permission to READ repo contents and WRITE (commit) back to it.
+    permissions:
+      contents: write
+
+    # ── STEPS ────────────────────────────────────────────────────
+    # Steps run one after another, in order.
+    # If any step fails, the job stops and GitHub notifies you.
+    steps:
+
+      # STEP 1: Check out your repo
+      # This downloads your repo's files onto the virtual computer
+      # so the next steps can read and edit them.
+      - name: 📥 Check out the repository
+        uses: actions/checkout@v4
+
+      # STEP 2: Install Python
+      # The virtual computer doesn't have Python by default,
+      # so we install it here. We use Python 3.11.
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # STEP 3: Install dependencies
+      # Our Python script uses the "requests" library to call the GitHub API.
+      # This step installs it — like npm install, but for Python.
+      - name: 📦 Install Python dependencies
+        run: pip install requests
+
+      # STEP 4: Run the script
+      # This is the main event — it runs update_contributions.py,
+      # which fetches your PRs and rewrites README.md.
+      #
+      # GITHUB_TOKEN is a special password automatically created by
+      # GitHub Actions. It lets our script read your PR data securely.
+      # You do NOT need to create this — GitHub handles it for you.
+      - name: 🚀 Run the contributions updater script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python update_contributions.py
+
+      # STEP 5: Commit and push the updated README
+      # After the script rewrites README.md, this step saves the changes
+      # back to your repo — just like doing "git commit" and "git push"
+      # from your terminal, but done automatically by the robot.
+      - name: 💾 Commit and push updated README.md
+        run: |
+          # Tell git who is making this commit (the robot's identity)
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage the updated README for commit
+          git add README.md
+
+          # Only commit if README.md actually changed (avoids empty commits)
+          git diff --cached --quiet || git commit -m "🤖 Auto-update contributions [$(date +'%Y-%m-%d')]"
+
+          # Push the commit back to your repo's main branch
+          git push
