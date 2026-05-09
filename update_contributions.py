@@ -36,6 +36,30 @@ HEADERS = {
 # Path to the overrides file (lives in the same repo)
 OVERRIDES_FILE = "overrides.json"
 
+# ─────────────────────────────────────────────
+# FILTERING RULES
+#
+# The script uses two rules to decide which PRs
+# appear in your README:
+#
+# RULE 1 — WHITELIST (overrides.json)
+#   Any PR you've manually added to overrides.json
+#   is always included, no matter when it was made.
+#   These are your hand-picked past contributions.
+#
+# RULE 2 — AUTO-INCLUDE DATE
+#   Any NEW PR merged on or after this date is
+#   included automatically — no manual action needed.
+#   Set this to today so only future contributions
+#   are auto-added going forward.
+#
+# Everything else (old PRs not in overrides.json) is ignored.
+# ─────────────────────────────────────────────
+
+# Set this to today's date (the day you set up this repo).
+# Format: "YYYY-MM-DD"
+AUTO_INCLUDE_FROM = "2026-05-09"
+
 
 # ─────────────────────────────────────────────
 # STEP 2: LANGUAGE DETECTION RULES
@@ -492,21 +516,57 @@ Each link goes directly to the Pull Request on the original repository.
 # STEP 6: MAIN — runs everything in order
 # ─────────────────────────────────────────────
 
+def is_included(pr, overrides):
+    """
+    Decides whether a PR should appear in the README.
+
+    A PR is included if EITHER of these is true:
+      1. It's in overrides.json (your hand-picked curated list)
+      2. It was created on or after AUTO_INCLUDE_FROM (new contributions)
+
+    Everything else — old PRs you haven't explicitly picked — is skipped.
+    """
+    repo_full_name = pr["pull_request"]["url"].split("/repos/")[1].split("/pulls")[0]
+    pr_number      = pr["number"]
+    override_key   = f"{repo_full_name}/pull/{pr_number}"
+
+    # RULE 1: Always include if it's in overrides.json
+    if override_key in overrides:
+        return True
+
+    # RULE 2: Auto-include if it's a new contribution (on or after AUTO_INCLUDE_FROM)
+    cutoff     = datetime.strptime(AUTO_INCLUDE_FROM, "%Y-%m-%d")
+    created_at = pr.get("created_at", "")
+    if created_at:
+        pr_date = datetime.strptime(created_at[:10], "%Y-%m-%d")
+        if pr_date >= cutoff:
+            return True
+
+    # Otherwise skip — old PR not in your curated list
+    return False
+
+
 def main():
     print("🚀 Starting contributions update...\n")
 
-    # Load manual overrides first
+    # Load manual overrides (your curated list)
     overrides = load_overrides()
 
     # Fetch all PRs from GitHub
     raw_prs = get_all_prs()
 
-    # Parse each PR (with shared language cache to avoid duplicate API calls)
+    # Filter: only keep PRs that are whitelisted OR new
+    print(f"🔎 Filtering PRs (whitelisted OR created after {AUTO_INCLUDE_FROM})...")
+    filtered_prs = [pr for pr in raw_prs if is_included(pr, overrides)]
+    skipped = len(raw_prs) - len(filtered_prs)
+    print(f"  ✔ Keeping {len(filtered_prs)} PRs, skipping {skipped} old/uncurated PRs.\n")
+
+    # Parse and categorize each included PR
     print("🔎 Parsing and categorizing PRs...")
-    lang_cache = {}  # { "owner/repo": {"HTML": 5200, "CSS": 3100, ...} }
+    lang_cache = {}
     parsed_prs = []
 
-    for pr in raw_prs:
+    for pr in filtered_prs:
         try:
             parsed = parse_pr(pr, overrides, lang_cache)
             parsed_prs.append(parsed)
