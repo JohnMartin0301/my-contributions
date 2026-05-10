@@ -51,8 +51,9 @@ jobs:
       # GMAIL_RECEIVER → where to send the digest (can be same as sender)
       - name: 🚀 Run issue notifier
         env:
-          GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
-          GMAIL_SENDER:   ${{ secrets.GMAIL_SENDER }}
-          GMAIL_PASSWORD: ${{ secrets.GMAIL_PASSWORD }}
-          GMAIL_RECEIVER: ${{ secrets.GMAIL_RECEIVER }}
+          GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
+          GMAIL_SENDER:    ${{ secrets.GMAIL_SENDER }}
+          GMAIL_PASSWORD:  ${{ secrets.GMAIL_PASSWORD }}
+          GMAIL_RECEIVER:  ${{ secrets.GMAIL_RECEIVER }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: python notify_issues.py

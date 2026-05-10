@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────────
+# monitor-prs.yml
+# ─────────────────────────────────────────────────────────────────
+# This workflow runs monitor_prs.py every hour.
+# It checks all your open PRs for new activity and
+# sends a Discord + Gmail notification only if something changed.
+#
+# WHERE TO PUT THIS FILE:
+#   .github/workflows/monitor-prs.yml
+#   (same folder as your other workflow files)
+# ─────────────────────────────────────────────────────────────────
+
+name: 🔔 PR Activity Monitor
+
+on:
+  # Runs every hour at the top of the hour (e.g. 1:00, 2:00, 3:00...)
+  # Cron format: minute | hour | day | month | day-of-week
+  # "0 * * * *" means: at minute 0 of every hour, every day
+  schedule:
+    - cron: "0 * * * *"
+
+  # Also lets you trigger it manually from the Actions tab
+  # Useful for testing without waiting for the next hour
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+
+    # ── PERMISSIONS ──────────────────────────────────────────────
+    # We need write access so the workflow can commit
+    # the updated last_checked.txt back to the repo.
+    # This is how the script remembers when it last ran.
+    permissions:
+      contents: write
+
+    steps:
+
+      # STEP 1: Download your repo files onto the virtual computer
+      - name: 📥 Check out repository
+        uses: actions/checkout@v4
+
+      # STEP 2: Install Python
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # STEP 3: Install the requests library
+      - name: 📦 Install dependencies
+        run: pip install requests
+
+      # STEP 4: Run the PR monitor script
+      # All secrets are injected here from GitHub Secrets
+      # (Settings → Secrets and variables → Actions)
+      #
+      # GITHUB_TOKEN   → auto-provided by GitHub, no setup needed
+      # GMAIL_SENDER   → your Gmail address
+      # GMAIL_PASSWORD → your Gmail App Password (16-char, no spaces)
+      # GMAIL_RECEIVER → where to receive the email
+      # DISCORD_WEBHOOK → your Discord channel webhook URL
+      - name: 🚀 Run PR monitor
+        env:
+          GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
+          GMAIL_SENDER:    ${{ secrets.GMAIL_SENDER }}
+          GMAIL_PASSWORD:  ${{ secrets.GMAIL_PASSWORD }}
+          GMAIL_RECEIVER:  ${{ secrets.GMAIL_RECEIVER }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: python monitor_prs.py
+
+      # STEP 5: Commit the updated last_checked.txt back to the repo
+      #
+      # This is the KEY step that makes the "only notify on NEW activity"
+      # feature work. After each run, we save the current time to
+      # last_checked.txt so the next run only looks at activity AFTER now.
+      #
+      # If last_checked.txt didn't change (e.g. first run with no PRs),
+      # git diff will show nothing and we skip the commit entirely.
+      - name: 💾 Save last-checked timestamp
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_checked.txt
+          git diff --cached --quiet || git commit -m "🤖 Update PR monitor timestamp [$(date +'%Y-%m-%d %H:%M')]"
+          git push
