@@ -7,7 +7,7 @@
 
 ## 📌 Quick Stats
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
+![Python](https://img.shields.io/badge/Python-3.13.2-blue?logo=python)
 ![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-Automated-2088FF?logo=githubactions)
 ![Discord](https://img.shields.io/badge/Discord-Notifications-5865F2?logo=discord)
 ![Gmail](https://img.shields.io/badge/Gmail-Digest-EA4335?logo=gmail)
