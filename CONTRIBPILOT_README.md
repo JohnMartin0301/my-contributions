@@ -68,7 +68,7 @@ Checks all my open Pull Requests every hour and instantly alerts me when somethi
 
 | Technology | What It's Used For |
 |---|---|
-| **Python 3.11** | The brain — runs all the logic and automation |
+| **Python 3.13.2** | The brain — runs all the logic and automation |
 | **GitHub Actions** | The scheduler — runs everything automatically in the cloud |
 | **GitHub API** | The data source — fetches PRs, issues, and repo information |
 | **Discord Webhooks** | Instant notifications — quick ping when something happens |
