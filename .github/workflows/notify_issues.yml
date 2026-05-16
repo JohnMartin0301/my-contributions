@@ -1,18 +1,12 @@
-# ─────────────────────────────────────────────────────────────────
-# notify-issues.yml
-# ─────────────────────────────────────────────────────────────────
-# This workflow runs notify_issues.py every morning at 9:00 AM
-# of new GitHub issues matching contribution queries.
-#
-# File Location:
-#   .github/workflows/notify-issues.yml
-#   (same folder as the update-contributions.yml)
-# ─────────────────────────────────────────────────────────────────
+# notify_issues.yml
+# Triggered by cron-job.org every day at 9:00 AM Philippine time.
+# Runs notify_issues.py to search for new GitHub issues and send
+# a Discord notification and Gmail digest.
 
 name: 🔔 Daily GitHub Issue Digest
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # can also be triggered manually from the Actions tab
 
 jobs:
   send-digest:
@@ -20,28 +14,22 @@ jobs:
 
     steps:
 
-      # STEP 1: Download repo files onto the virtual computer
+      # Downloads the repo files onto the runner
       - name: 📥 Check out repository
         uses: actions/checkout@v4
 
-      # STEP 2: Install Python
+      # Installs Python 3.13 on the runner
       - name: 🐍 Set up Python 3.13
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # STEP 3: Install the 'requests' library our script needs
+      # Installs the requests library used by the script
       - name: 📦 Install dependencies
         run: pip install requests
 
-      # STEP 4: Run the notifier script
-      # All 4 environment variables below come from GitHub Secrets
-      # (Settings → Secrets and variables → Actions → New repository secret)
-      #
-      # GITHUB_TOKEN   → automatically provided by GitHub, no setup needed
-      # GMAIL_SENDER   → Gmail address (e.g. yourname@gmail.com)
-      # GMAIL_PASSWORD → Gmail App Password (NOT your regular password)
-      # GMAIL_RECEIVER → where to send the digest (can be same as sender)
+      # Runs the issue notifier script
+      # Credentials are pulled from GitHub Secrets — never stored in code
       - name: 🚀 Run issue notifier
         env:
           GITHUB_TOKEN:    ${{ secrets.GITHUB_TOKEN }}
