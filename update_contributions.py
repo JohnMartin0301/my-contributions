@@ -1,14 +1,10 @@
 """
 update_contributions.py
-------------------------
-This script does 4 things:
-  1. Talks to the GitHub API to fetch all your Pull Requests (merged + open)
-  2. Reads the ACTUAL languages used in each repo (not just the primary one)
-  3. Checks overrides.json for any manual corrections you've made
-  4. Rebuilds your README.md with everything categorized and formatted
-
-It runs automatically every day via GitHub Actions (see update-contributions.yml),
-but you can also run it manually on your own computer anytime.
+Fetches all Pull Requests from GitHub and rebuilds README.md.
+Auto-detects tech stacks from repo languages and PR title keywords.
+Respects overrides.json for manual corrections.
+Only includes PRs listed in overrides.json or created after AUTO_INCLUDE_FROM.
+Runs on every push via GitHub Actions (update_contributions.yml).
 """
 
 import os
@@ -18,119 +14,70 @@ from datetime import datetime
 from collections import defaultdict
 
 
-# ─────────────────────────────────────────────
-# STEP 1: CONFIGURATION
-# ─────────────────────────────────────────────
-
+# ── Configuration ─────────────────────────────────────────────────
 GITHUB_USERNAME = "JohnMartin0301"
-
-# Automatically provided by GitHub Actions.
-# To run locally: export GITHUB_TOKEN=your_personal_access_token
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
 
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
     "Accept": "application/vnd.github.v3+json",
 }
 
-# Path to the overrides file (lives in the same repo)
 OVERRIDES_FILE = "overrides.json"
 
-# ─────────────────────────────────────────────
-# FILTERING RULES
-#
-# The script uses two rules to decide which PRs
-# appear in your README:
-#
-# RULE 1 — WHITELIST (overrides.json)
-#   Any PR you've manually added to overrides.json
-#   is always included, no matter when it was made.
-#   These are your hand-picked past contributions.
-#
-# RULE 2 — AUTO-INCLUDE DATE
-#   Any NEW PR merged on or after this date is
-#   included automatically — no manual action needed.
-#   Set this to today so only future contributions
-#   are auto-added going forward.
-#
-# Everything else (old PRs not in overrides.json) is ignored.
-# ─────────────────────────────────────────────
-
-# Set this to today's date (the day you set up this repo).
-# Format: "YYYY-MM-DD"
+# PRs created on or after this date are auto-included
+# PRs before this date must be listed in overrides.json to appear
 AUTO_INCLUDE_FROM = "2026-05-09"
 
 
-# ─────────────────────────────────────────────
-# STEP 2: LANGUAGE DETECTION RULES
-#
-# GitHub repos can use many languages at once.
-# We fetch ALL of them and use these rules to
-# build a clean "Tech Stack" label.
-# ─────────────────────────────────────────────
+# ── Language Detection ────────────────────────────────────────────
 
-# These are framework/library hints we detect from PR titles or repo names.
-# They override or extend the raw language GitHub reports.
-# Example: GitHub says "Python" but the PR title says "flask" → we show "Python, Flask"
+# Framework keywords detected from PR title or repo name
+# Maps keyword → (base language, display label)
 FRAMEWORK_HINTS = {
-    "flask":        ("Python", "Python, Flask"),
-    "django":       ("Python", "Python, Django"),
-    "fastapi":      ("Python", "Python, FastAPI"),
-    "react":        ("JavaScript", "React, JavaScript"),
-    "vue":          ("JavaScript", "Vue, JavaScript"),
-    "next":         ("JavaScript", "Next.js, React"),
-    "express":      ("JavaScript", "Node.js, Express"),
-    "node":         ("JavaScript", "Node.js"),
-    "tailwind":     ("CSS",        "Tailwind CSS"),
-    "bootstrap":    ("CSS",        "Bootstrap, CSS"),
-    "docker":       ("Shell",      "Docker, Shell"),
-    "github actions": ("YAML",     "GitHub Actions, YAML"),
-    "shellcheck":   ("Shell",      "Shell, YAML"),
-    "yamlint":      ("YAML",       "YAML, Shell"),
-    "typescript":   ("TypeScript", "TypeScript"),
-    "flutter":      ("Dart",       "Flutter, Dart"),
-    "svelte":       ("JavaScript", "Svelte, JavaScript"),
+    "flask":          ("Python",     "Python, Flask"),
+    "django":         ("Python",     "Python, Django"),
+    "fastapi":        ("Python",     "Python, FastAPI"),
+    "react":          ("JavaScript", "React, JavaScript"),
+    "vue":            ("JavaScript", "Vue, JavaScript"),
+    "next":           ("JavaScript", "Next.js, React"),
+    "express":        ("JavaScript", "Node.js, Express"),
+    "node":           ("JavaScript", "Node.js"),
+    "tailwind":       ("CSS",        "Tailwind CSS"),
+    "bootstrap":      ("CSS",        "Bootstrap, CSS"),
+    "docker":         ("Shell",      "Docker, Shell"),
+    "github actions": ("YAML",       "GitHub Actions, YAML"),
+    "shellcheck":     ("Shell",      "Shell, YAML"),
+    "yamlint":        ("YAML",       "YAML, Shell"),
+    "typescript":     ("TypeScript", "TypeScript"),
+    "flutter":        ("Dart",       "Flutter, Dart"),
+    "svelte":         ("JavaScript", "Svelte, JavaScript"),
 }
 
-# How we label GitHub's language names in the README
+# Display names for GitHub language identifiers
 LANGUAGE_DISPLAY = {
-    "JavaScript": "JavaScript",
-    "TypeScript": "TypeScript",
-    "Python":     "Python",
-    "HTML":       "HTML",
-    "CSS":        "CSS",
-    "Shell":      "Shell",
-    "YAML":       "YAML",
-    "Go":         "Go",
-    "Rust":       "Rust",
-    "Java":       "Java",
-    "Ruby":       "Ruby",
-    "PHP":        "PHP",
-    "C":          "C",
-    "C++":        "C++",
-    "C#":         "C#",
-    "Dart":       "Dart",
-    "Kotlin":     "Kotlin",
-    "Swift":      "Swift",
+    "JavaScript": "JavaScript", "TypeScript": "TypeScript",
+    "Python": "Python",         "HTML": "HTML",
+    "CSS": "CSS",               "Shell": "Shell",
+    "YAML": "YAML",             "Go": "Go",
+    "Rust": "Rust",             "Java": "Java",
+    "Ruby": "Ruby",             "PHP": "PHP",
+    "C": "C",                   "C++": "C++",
+    "C#": "C#",                 "Dart": "Dart",
+    "Kotlin": "Kotlin",         "Swift": "Swift",
 }
 
-# Which languages are "secondary" and we always include if present
-# e.g. HTML repos almost always have CSS too
+# Always included in tech stack if present in the repo
 ALWAYS_INCLUDE = {"CSS", "HTML", "YAML", "Shell"}
 
-# Which languages to ignore — they're too common and not informative
+# Ignored — too common to be informative
 IGNORE_LANGS = {"Dockerfile", "Makefile", "Batchfile", "PowerShell"}
 
-# Languages that signal a repo belongs to Frontend / Backend / DevOps
-FRONTEND_LANGS  = {"JavaScript", "TypeScript", "HTML", "CSS", "Dart"}
-BACKEND_LANGS   = {"Python", "Go", "Ruby", "Java", "Rust", "PHP", "C", "C++", "C#"}
-DEVOPS_LANGS    = {"Shell", "YAML"}
-DEVOPS_TYPES    = {"DevOps"}
+# Used to sort PRs into technology sections
+DEVOPS_TYPES = {"DevOps"}
 
 
-# ─────────────────────────────────────────────
-# STEP 3: CONTRIBUTION TYPE & DOMAIN KEYWORDS
-# ─────────────────────────────────────────────
+# ── Contribution Type & Domain Keywords ───────────────────────────
 
 TYPE_KEYWORDS = {
     "Bug Fix":       ["fix", "bug", "patch", "repair", "resolve", "broken", "off screen", "consistency"],
@@ -142,34 +89,21 @@ TYPE_KEYWORDS = {
 }
 
 DOMAIN_KEYWORDS = {
-    "Web Development":  ["portfolio", "website", "landing", "page", "web", "frontend", "navbar",
-                         "footer", "responsive", "css", "html", "tradebull", "betacity", "pendulum"],
-    "Developer Tools":  ["devops", "ci", "workflow", "python", "programs", "tool", "cli",
-                         "script", "logging", "api", "article", "manager", "json", "game-changing"],
-    "AI / ML":          ["ai", "ml", "model", "llm", "neural", "machine", "learning"],
-    "Mobile":           ["mobile", "android", "ios", "flutter", "react-native"],
-    "Database":         ["db", "database", "sql", "mongo", "postgres"],
+    "Web Development": ["portfolio", "website", "landing", "page", "web", "frontend", "navbar",
+                        "footer", "responsive", "css", "html", "tradebull", "betacity", "pendulum"],
+    "Developer Tools": ["devops", "ci", "workflow", "python", "programs", "tool", "cli",
+                        "script", "logging", "api", "article", "manager", "json", "game-changing"],
+    "AI / ML":         ["ai", "ml", "model", "llm", "neural", "machine", "learning"],
+    "Mobile":          ["mobile", "android", "ios", "flutter", "react-native"],
+    "Database":        ["db", "database", "sql", "mongo", "postgres"],
 }
 
 
-# ─────────────────────────────────────────────
-# STEP 4: HELPER FUNCTIONS
-# ─────────────────────────────────────────────
+# ── Helper Functions ──────────────────────────────────────────────
 
 def load_overrides():
-    """
-    Reads overrides.json from the repo root.
-    This file lets you manually correct tech stacks, descriptions, or categories
-    for any specific PR. If the file doesn't exist yet, returns an empty dict.
-
-    Example overrides.json:
-    {
-      "devanprigent/article-manager/pull/23": {
-        "tech_stack": "Python, Flask",
-        "description": "Add structured logging throughout the API"
-      }
-    }
-    """
+    # Reads manual corrections from overrides.json
+    # Returns empty dict if the file doesn't exist
     if not os.path.exists(OVERRIDES_FILE):
         print(f"ℹ️  No {OVERRIDES_FILE} found — using auto-detection for everything.")
         return {}
@@ -180,73 +114,45 @@ def load_overrides():
 
 
 def get_repo_languages(repo_full_name):
-    """
-    Asks GitHub: 'What languages does this repo actually use?'
-    GitHub returns a dict like: {"HTML": 5200, "CSS": 3100, "JavaScript": 800}
-    The numbers are bytes of code — bigger = more of that language.
-
-    We use this to build a proper tech stack label, e.g. "HTML, CSS, JavaScript"
-    instead of just the single primary language.
-    """
+    # Fetches all languages used in the repo and their byte counts
     url = f"https://api.github.com/repos/{repo_full_name}/languages"
     response = requests.get(url, headers=HEADERS)
     if response.status_code != 200:
         return {}
-    return response.json()  # e.g. {"HTML": 5200, "CSS": 3100}
+    return response.json()
 
 
 def build_tech_stack(repo_full_name, pr_title, raw_languages):
-    """
-    Combines 3 sources of info to produce the best possible tech stack label:
-
-    1. raw_languages — actual language bytes from the GitHub API
-       e.g. {"HTML": 5200, "CSS": 3100, "JavaScript": 800}
-
-    2. pr_title — we scan it for framework keywords
-       e.g. "feat(backend): add flask logging" → we add Flask
-
-    3. ALWAYS_INCLUDE — secondary langs like CSS/HTML are included if present
-
-    Returns a clean string like "HTML, CSS, JavaScript" or "Python, Flask"
-    """
+    # Builds a tech stack label from repo languages and PR title keywords
+    # Combines primary language + secondary languages + framework hints
     if not raw_languages:
         return "Unknown"
 
-    # Sort languages by bytes used (most used first)
     sorted_langs = sorted(raw_languages.items(), key=lambda x: x[1], reverse=True)
-
-    # Filter out noise languages
-    langs = [lang for lang, _ in sorted_langs if lang not in IGNORE_LANGS]
+    langs        = [lang for lang, _ in sorted_langs if lang not in IGNORE_LANGS]
 
     if not langs:
         return "Unknown"
 
-    # Start with the top language (the main one)
-    primary = langs[0]
+    primary  = langs[0]
     selected = [primary]
 
-    # Always include important secondary languages if present
     for lang in langs[1:]:
         if lang in ALWAYS_INCLUDE and lang not in selected:
             selected.append(lang)
 
-    # Convert to display names
-    display = [LANGUAGE_DISPLAY.get(lang, lang) for lang in selected]
-
-    # Check PR title and repo name for framework hints
-    # This detects things like "flask", "react", "docker" in the PR title
+    display     = [LANGUAGE_DISPLAY.get(lang, lang) for lang in selected]
     search_text = f"{pr_title} {repo_full_name}".lower()
+
     for keyword, (base_lang, framework_label) in FRAMEWORK_HINTS.items():
         if keyword in search_text:
-            # If the base language is already in our stack, replace with framework label
             if base_lang in display:
                 display = [framework_label if d == base_lang else d for d in display]
             elif base_lang in selected:
                 display.append(framework_label)
-            break  # Only apply the first matching framework hint
+            break
 
-    # Remove duplicates while preserving order
-    seen = set()
+    seen  = set()
     final = []
     for d in display:
         if d not in seen:
@@ -257,10 +163,7 @@ def build_tech_stack(repo_full_name, pr_title, raw_languages):
 
 
 def detect_category(keyword_map, text):
-    """
-    Checks if any keyword from each category appears in the given text.
-    Returns the first matching category name, or 'Other' if nothing matches.
-    """
+    # Returns the first category whose keywords appear in the text
     text_lower = text.lower()
     for category, keywords in keyword_map.items():
         if any(kw in text_lower for kw in keywords):
@@ -269,21 +172,16 @@ def detect_category(keyword_map, text):
 
 
 def get_all_prs():
-    """
-    Fetches ALL pull requests you've made (both merged and open)
-    by calling the GitHub Search API.
-
-    GitHub returns results 100 at a time (paginated),
-    so we keep looping until there are no more pages.
-    """
+    # Fetches all merged and open PRs authored by the configured user
+    # Paginates through results 100 at a time
     print(f"🔍 Fetching PRs for @{GITHUB_USERNAME}...")
     all_prs = []
 
     for state in ["merged", "open"]:
-        page = 1
+        page  = 1
         query = f"is:pr+is:{state}+author:{GITHUB_USERNAME}"
         while True:
-            url = f"https://api.github.com/search/issues?q={query}&per_page=100&page={page}"
+            url      = f"https://api.github.com/search/issues?q={query}&per_page=100&page={page}"
             response = requests.get(url, headers=HEADERS)
 
             if response.status_code == 403:
@@ -305,19 +203,9 @@ def get_all_prs():
 
 
 def parse_pr(pr, overrides, lang_cache):
-    """
-    Processes one raw PR from the GitHub API into a clean structured dict.
-
-    Steps:
-    1. Extract repo name, PR number, title, URL, and status
-    2. Fetch the repo's actual languages (cached so we don't re-fetch)
-    3. Build the tech stack string
-    4. Auto-detect contribution type and domain
-    5. Apply any overrides from overrides.json
-
-    lang_cache is a dict we pass around to avoid calling the GitHub API
-    multiple times for the same repo (saves time and API quota).
-    """
+    # Parses a raw PR into a structured dict
+    # Detects tech stack, type, and domain
+    # Applies overrides from overrides.json if available
     repo_full_name = pr["pull_request"]["url"].split("/repos/")[1].split("/pulls")[0]
     repo_name      = repo_full_name.split("/")[1]
     pr_number      = pr["number"]
@@ -325,7 +213,6 @@ def parse_pr(pr, overrides, lang_cache):
     pr_url         = f"https://github.com/{repo_full_name}/pull/{pr_number}"
     override_key   = f"{repo_full_name}/pull/{pr_number}"
 
-    # Determine status
     if pr.get("pull_request", {}).get("merged_at"):
         status = "✅ Merged"
     elif pr.get("state") == "open":
@@ -333,15 +220,11 @@ def parse_pr(pr, overrides, lang_cache):
     else:
         status = "❌ Closed"
 
-    # Fetch repo languages — use cache to avoid duplicate API calls
     if repo_full_name not in lang_cache:
         lang_cache[repo_full_name] = get_repo_languages(repo_full_name)
     raw_languages = lang_cache[repo_full_name]
 
-    # Build tech stack from real language data + framework hints
-    tech_stack = build_tech_stack(repo_full_name, pr_title, raw_languages)
-
-    # Auto-detect type and domain
+    tech_stack        = build_tech_stack(repo_full_name, pr_title, raw_languages)
     combined_text     = f"{repo_name} {pr_title}"
     contribution_type = detect_category(TYPE_KEYWORDS, pr_title)
     domain            = detect_category(DOMAIN_KEYWORDS, combined_text)
@@ -358,25 +241,21 @@ def parse_pr(pr, overrides, lang_cache):
         "domain":         domain,
     }
 
-    # Apply overrides — these win over everything else
-    # If you've set something in overrides.json, it will always be used.
     if override_key in overrides:
         override = overrides[override_key]
-        if "tech_stack"   in override: result["tech_stack"]  = override["tech_stack"]
-        if "description"  in override: result["pr_title"]    = override["description"]
-        if "type"         in override: result["type"]         = override["type"]
-        if "domain"       in override: result["domain"]       = override["domain"]
+        if "tech_stack"  in override: result["tech_stack"] = override["tech_stack"]
+        if "description" in override: result["pr_title"]   = override["description"]
+        if "type"        in override: result["type"]        = override["type"]
+        if "domain"      in override: result["domain"]      = override["domain"]
         print(f"  📝 Override applied for: {override_key}")
 
     return result
 
 
-# ─────────────────────────────────────────────
-# STEP 5: README GENERATION
-# ─────────────────────────────────────────────
+# ── README Generation ─────────────────────────────────────────────
 
 def make_row(pr):
-    """Formats one PR as a single markdown table row."""
+    # Formats a single PR as a markdown table row
     return (
         f"| [{pr['repo_full_name']}]({pr['pr_url']}) "
         f"| {pr['pr_title']} "
@@ -386,10 +265,7 @@ def make_row(pr):
 
 
 def table_section(title, pr_list):
-    """
-    Renders a titled section with a markdown table.
-    Returns empty string if there are no PRs for this section.
-    """
+    # Renders a titled markdown table section for a list of PRs
     if not pr_list:
         return ""
     rows = "\n".join(make_row(p) for p in pr_list)
@@ -403,11 +279,8 @@ def table_section(title, pr_list):
 
 
 def generate_readme(prs):
-    """
-    Groups all PRs into Frontend / Backend / DevOps / Other,
-    then by contribution type, then by domain.
-    Assembles and returns the full README.md as a string.
-    """
+    # Groups PRs by technology, type, and domain
+    # Returns the full README.md content as a string
     total    = len(prs)
     merged   = sum(1 for p in prs if "Merged" in p["status"])
     open_prs = sum(1 for p in prs if "Open"   in p["status"])
@@ -425,23 +298,21 @@ def generate_readme(prs):
         by_type[pr["type"]].append(pr)
         by_domain[pr["domain"]].append(pr)
 
-        # Categorize into technology buckets
-        # DevOps type or Shell/YAML stack → DevOps section
         if pr["type"] in DEVOPS_TYPES or any(l in pr["tech_stack"] for l in ["Shell", "YAML", "GitHub Actions"]):
             devops_prs.append(pr)
-        # Frontend languages or Style/UI type → Frontend section
         elif any(lang in pr["tech_stack"] for lang in ["JavaScript", "TypeScript", "HTML", "CSS", "React", "Vue", "Svelte"]) \
                 or pr["type"] == "Style/UI":
             frontend_prs.append(pr)
-        # Backend languages → Backend section
         elif any(lang in pr["tech_stack"] for lang in ["Python", "Go", "Ruby", "Java", "Rust", "PHP", "Flask", "Django", "Node"]):
             backend_prs.append(pr)
         else:
             other_prs.append(pr)
 
-    readme = f"""# 🗂️ my-contributions
+    readme = f"""# ✈️ ContribPilot - Open Source Contribution Automation System
 
-> A curated index of open-source repositories I've contributed to — organized by technology, contribution type, and domain.
+### 🗂️ my-contributions — A tracked & auto-updated index of my open-source contributions
+
+> A running log of every open-source project I've contributed to, automatically organized and updated.
 >
 > ⚡ **This file is auto-generated** by a GitHub Actions workflow. Do not edit it manually.
 > To correct a tech stack or description, edit `overrides.json` instead.
@@ -494,13 +365,6 @@ def generate_readme(prs):
 
 ---
 
-## 🚀 About This Repo
-
-This repo contains **no source code** — it's a living index of my open-source contributions.
-Each link goes directly to the Pull Request on the original repository.
-
----
-
 ## 📬 Connect with Me
 
 - GitHub: [@{GITHUB_USERNAME}](https://github.com/{GITHUB_USERNAME})
@@ -512,29 +376,18 @@ Each link goes directly to the Pull Request on the original repository.
     return readme
 
 
-# ─────────────────────────────────────────────
-# STEP 6: MAIN — runs everything in order
-# ─────────────────────────────────────────────
+# ── Filtering ─────────────────────────────────────────────────────
 
 def is_included(pr, overrides):
-    """
-    Decides whether a PR should appear in the README.
-
-    A PR is included if EITHER of these is true:
-      1. It's in overrides.json (your hand-picked curated list)
-      2. It was created on or after AUTO_INCLUDE_FROM (new contributions)
-
-    Everything else — old PRs you haven't explicitly picked — is skipped.
-    """
+    # Returns True if the PR is in overrides.json
+    # or was created on or after AUTO_INCLUDE_FROM
     repo_full_name = pr["pull_request"]["url"].split("/repos/")[1].split("/pulls")[0]
     pr_number      = pr["number"]
     override_key   = f"{repo_full_name}/pull/{pr_number}"
 
-    # RULE 1: Always include if it's in overrides.json
     if override_key in overrides:
         return True
 
-    # RULE 2: Auto-include if it's a new contribution (on or after AUTO_INCLUDE_FROM)
     cutoff     = datetime.strptime(AUTO_INCLUDE_FROM, "%Y-%m-%d")
     created_at = pr.get("created_at", "")
     if created_at:
@@ -542,26 +395,22 @@ def is_included(pr, overrides):
         if pr_date >= cutoff:
             return True
 
-    # Otherwise skip — old PR not in your curated list
     return False
 
+
+# ── Main ──────────────────────────────────────────────────────────
 
 def main():
     print("🚀 Starting contributions update...\n")
 
-    # Load manual overrides (your curated list)
     overrides = load_overrides()
+    raw_prs   = get_all_prs()
 
-    # Fetch all PRs from GitHub
-    raw_prs = get_all_prs()
-
-    # Filter: only keep PRs that are whitelisted OR new
     print(f"🔎 Filtering PRs (whitelisted OR created after {AUTO_INCLUDE_FROM})...")
     filtered_prs = [pr for pr in raw_prs if is_included(pr, overrides)]
-    skipped = len(raw_prs) - len(filtered_prs)
+    skipped      = len(raw_prs) - len(filtered_prs)
     print(f"  ✔ Keeping {len(filtered_prs)} PRs, skipping {skipped} old/uncurated PRs.\n")
 
-    # Parse and categorize each included PR
     print("🔎 Parsing and categorizing PRs...")
     lang_cache = {}
     parsed_prs = []
@@ -574,7 +423,6 @@ def main():
         except Exception as e:
             print(f"  ⚠ Skipped a PR due to error: {e}")
 
-    # Generate and write the README
     print("\n📝 Generating README.md...")
     readme_content = generate_readme(parsed_prs)
 
