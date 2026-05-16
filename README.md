@@ -1,6 +1,8 @@
-# 🗂️ my-contributions
+# ✈️ ContribPilot - Open Source Contribution Automation System
 
-> A curated index of open-source repositories I've contributed to — organized by technology, contribution type, and domain.
+### 🗂️ my-contributions — A tracked & auto-updated index of my open-source contributions
+
+> A running log of every open-source project I've contributed to, automatically organized and updated.
 >
 > ⚡ **This file is auto-generated** by a GitHub Actions workflow. Do not edit it manually.
 > To correct a tech stack or description, edit `overrides.json` instead.
@@ -126,13 +128,6 @@
 | 🔄 Open PR | Pull request is still open |
 | 🚧 In Progress | Currently working on it |
 | ❌ Closed | PR was closed without merging |
-
----
-
-## 🚀 About This Repo
-
-This repo contains **no source code** — it's a living index of my open-source contributions.
-Each link goes directly to the Pull Request on the original repository.
 
 ---
 
