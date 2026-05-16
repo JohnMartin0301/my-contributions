@@ -1,14 +1,8 @@
 """
 notify_issues.py
------------------
-This script does 4 things:
-  1. Searches GitHub for open issues matching your contribution queries
-  2. Filters to only show NEW issues from the last 24 hours
-  3. Sends a quick summary notification via Discord
-  4. Sends a full detailed digest via Gmail
-
-It runs automatically every morning at 9:00 AM Philippine time
-via GitHub Actions (see notify-issues.yml).
+Searches GitHub for new issues matching contribution queries.
+Sends a Discord summary and a full Gmail digest every morning at 9:00 AM PH time.
+Triggered by cron-job.org via GitHub Actions (notify_issues.yml).
 """
 
 import os
@@ -20,17 +14,12 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 
-# ─────────────────────────────────────────────
-# STEP 1: CONFIGURATION
-# All sensitive values are stored as GitHub
-# Secrets — never typed directly here.
-# ─────────────────────────────────────────────
-
+# ── Credentials from GitHub Secrets ──────────────────────────────
 GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
-GMAIL_SENDER    = os.environ.get("GMAIL_SENDER", "")    # your Gmail address
-GMAIL_PASSWORD  = os.environ.get("GMAIL_PASSWORD", "")  # your Gmail App Password
-GMAIL_RECEIVER  = os.environ.get("GMAIL_RECEIVER", "")  # where to send the email
-DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "") # your Discord webhook URL
+GMAIL_SENDER    = os.environ.get("GMAIL_SENDER", "")
+GMAIL_PASSWORD  = os.environ.get("GMAIL_PASSWORD", "")
+GMAIL_RECEIVER  = os.environ.get("GMAIL_RECEIVER", "")
+DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "")
 
 HEADERS = {
     "Authorization": f"token {GITHUB_TOKEN}",
@@ -38,13 +27,7 @@ HEADERS = {
 }
 
 
-# ─────────────────────────────────────────────
-# STEP 2: YOUR ISSUE SEARCH QUERIES
-#
-# Grouped by category. Add or remove queries
-# anytime — the script handles the rest.
-# ─────────────────────────────────────────────
-
+# ── Issue search queries grouped by category ──────────────────────
 QUERIES = {
 
     "🔧 Infrastructure Automation / DevOps": [
@@ -98,18 +81,11 @@ QUERIES = {
 }
 
 
-# ─────────────────────────────────────────────
-# STEP 3: GITHUB SEARCH
-# ─────────────────────────────────────────────
+# ── GitHub Search ─────────────────────────────────────────────────
 
 def search_issues(query, since=None):
-    """
-    Calls the GitHub Search API for a single query.
-
-    'since' is an optional datetime — if provided,
-    only issues created after that time are returned.
-    This is how we filter to 'last 24 hours only'.
-    """
+    # Searches GitHub for issues matching the query
+    # Filters to issues created after 'since' when provided
     if since:
         since_str = since.strftime("%Y-%m-%dT%H:%M:%SZ")
         full_query = f"{query} created:>{since_str}"
@@ -124,7 +100,7 @@ def search_issues(query, since=None):
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
 
-        # If rate limited, wait 60 seconds and retry once
+        # Waits 60 seconds and retries once if rate limited
         if response.status_code == 403:
             print("  ⚠️  Rate limit hit — waiting 60 seconds...")
             time.sleep(60)
@@ -143,19 +119,9 @@ def search_issues(query, since=None):
 
 
 def fetch_all_issues():
-    """
-    Loops through every category and every query.
-    For each query:
-      - Fetches NEW issues (last 24 hours)
-      - Fetches the TOTAL count of all open issues
-
-    Returns:
-      new_by_category    -> { category: [issue, ...] }
-      totals_by_category -> { category: total_count }
-
-    Waits 2 seconds between requests to stay within
-    GitHub's rate limit of 30 requests/minute.
-    """
+    # Runs all queries per category
+    # Returns new issues (last 24h) and total open counts per category
+    # Waits 2 seconds between requests to respect rate limits
     since = datetime.now(timezone.utc) - timedelta(hours=24)
 
     new_by_category    = {}
@@ -165,23 +131,20 @@ def fetch_all_issues():
         print(f"\n📂 {category}")
         new_issues  = []
         total_count = 0
-        seen_ids    = set()  # prevents duplicate issues across queries
+        seen_ids    = set()
 
         for query in queries:
             print(f"  🔍 {query[:60]}...")
 
-            # Fetch new issues (last 24 hours)
             new, _ = search_issues(query, since=since)
             for issue in new:
                 if issue["id"] not in seen_ids:
                     seen_ids.add(issue["id"])
                     new_issues.append(issue)
 
-            # Fetch total open count (no date filter)
             _, total = search_issues(query)
             total_count += total
 
-            # Wait 2 seconds between each request
             time.sleep(2)
 
         new_by_category[category]    = new_issues
@@ -191,31 +154,14 @@ def fetch_all_issues():
     return new_by_category, totals_by_category
 
 
-# ─────────────────────────────────────────────
-# STEP 4: DISCORD NOTIFICATION
-# Sends a quick summary to your Discord channel
-# via webhook — no login or bot token needed.
-#
-# A webhook is a special URL Discord gives you.
-# Posting a message to it is as simple as sending
-# a single web request.
-# ─────────────────────────────────────────────
+# ── Discord Notification ──────────────────────────────────────────
 
 def build_discord_message(new_by_category, totals_by_category):
-    """
-    Builds a Discord embed — a rich message card
-    with a title, color accent, and structured fields.
-
-    Layout:
-      - Header : date + total new issues count
-      - Field 1: summary table (one line per category)
-      - Field 2: up to 5 new issues with clickable links
-      - Footer : reminder to check Gmail for full report
-    """
+    # Builds a Discord embed with a per-category summary
+    # and up to 5 new issues with clickable links
     today     = datetime.now().strftime("%A, %B %d, %Y")
     total_new = sum(len(v) for v in new_by_category.values())
 
-    # Build one summary line per category
     summary_lines = []
     for category, total in totals_by_category.items():
         new_count = len(new_by_category.get(category, []))
@@ -223,7 +169,6 @@ def build_discord_message(new_by_category, totals_by_category):
         summary_lines.append(f"{category}: {new_label} · {total} open")
     summary_text = "\n".join(summary_lines)
 
-    # Collect all new issues and show up to 5
     all_new = []
     for issues in new_by_category.values():
         all_new.extend(issues)
@@ -238,7 +183,6 @@ def build_discord_message(new_by_category, totals_by_category):
             if len(title) > 60:
                 title = title[:60] + "..."
             url   = issue["html_url"]
-            # Markdown link + inline code for repo name
             issue_lines.append(f"[{title}]({url})\n`{repo}`")
         issues_text = "\n\n".join(issue_lines)
         if len(all_new) > 5:
@@ -247,8 +191,6 @@ def build_discord_message(new_by_category, totals_by_category):
     else:
         issues_text = "No new issues in the last 24 hours."
 
-    # Discord embed payload
-    # Color 0x5865F2 = Discord blurple
     payload = {
         "username": "IssueBot",
         "embeds": [
@@ -257,20 +199,10 @@ def build_discord_message(new_by_category, totals_by_category):
                 "description": f"**{total_new} new issue(s)** found in the last 24 hours",
                 "color": 0x5865F2,
                 "fields": [
-                    {
-                        "name": "📊 Summary",
-                        "value": summary_text or "No data",
-                        "inline": False,
-                    },
-                    {
-                        "name": "🆕 New Issues",
-                        "value": issues_text,
-                        "inline": False,
-                    },
+                    {"name": "📊 Summary",    "value": summary_text or "No data", "inline": False},
+                    {"name": "🆕 New Issues", "value": issues_text,               "inline": False},
                 ],
-                "footer": {
-                    "text": "Full detailed report sent to your Gmail inbox 📧"
-                },
+                "footer":    {"text": "Full detailed report sent to your Gmail inbox 📧"},
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         ],
@@ -279,27 +211,14 @@ def build_discord_message(new_by_category, totals_by_category):
 
 
 def send_discord(payload):
-    """
-    Posts the embed message to your Discord channel
-    via the webhook URL stored in DISCORD_WEBHOOK secret.
-
-    How webhooks work:
-      1. You create a webhook in Discord (one-time setup)
-      2. Discord gives you a special URL
-      3. This function POSTs the message to that URL
-      4. Discord delivers it to your channel instantly
-    """
+    # Posts the embed to the Discord channel via webhook URL
     if not DISCORD_WEBHOOK:
         print("  ⚠️  DISCORD_WEBHOOK secret not set — skipping Discord.")
         return
 
     print("\n💬 Sending Discord notification...")
     try:
-        response = requests.post(
-            DISCORD_WEBHOOK,
-            json=payload,
-            timeout=10,
-        )
+        response = requests.post(DISCORD_WEBHOOK, json=payload, timeout=10)
         if response.status_code == 204:
             print("  ✅ Discord notification sent!")
         else:
@@ -308,31 +227,22 @@ def send_discord(payload):
         print(f"  ❌ Discord request failed: {e}")
 
 
-# ─────────────────────────────────────────────
-# STEP 5: EMAIL BUILDER
-# Formats the full results into an HTML email.
-# ─────────────────────────────────────────────
+# ── Email Builder ─────────────────────────────────────────────────
 
 def build_email(new_by_category, totals_by_category):
-    """
-    Builds a detailed HTML email with:
-    - A summary table showing totals per category
-    - A full section per category listing new issues
-    """
+    # Builds a detailed HTML email with a summary table
+    # and a full issue list per category
     today     = datetime.now().strftime("%A, %B %d, %Y")
     total_new = sum(len(v) for v in new_by_category.values())
 
-    # Summary table rows
     summary_rows = ""
     for category, total in totals_by_category.items():
         new_count = len(new_by_category.get(category, []))
-        if new_count:
-            badge = (
-                f'<span style="color:#2ea44f;font-weight:bold">'
-                f'+{new_count} new</span>'
-            )
-        else:
-            badge = '<span style="color:#888">no new</span>'
+        badge = (
+            f'<span style="color:#2ea44f;font-weight:bold">+{new_count} new</span>'
+            if new_count else
+            '<span style="color:#888">no new</span>'
+        )
         summary_rows += (
             f"<tr>"
             f'<td style="padding:8px 12px;border-bottom:1px solid #eee">{category}</td>'
@@ -341,7 +251,6 @@ def build_email(new_by_category, totals_by_category):
             f"</tr>"
         )
 
-    # New issues per category
     category_sections = ""
     for category, issues in new_by_category.items():
         if not issues:
@@ -349,111 +258,76 @@ def build_email(new_by_category, totals_by_category):
 
         issue_rows = ""
         for issue in issues:
-            repo    = issue["repository_url"].replace(
-                "https://api.github.com/repos/", ""
-            )
+            repo    = issue["repository_url"].replace("https://api.github.com/repos/", "")
             title   = issue["title"]
             url     = issue["html_url"]
             created = issue["created_at"][:10]
-            labels  = ", ".join(
-                label["name"] for label in issue.get("labels", [])
-            ) or "—"
+            labels  = ", ".join(label["name"] for label in issue.get("labels", [])) or "—"
 
             issue_rows += (
                 f"<tr>"
                 f'<td style="padding:8px 12px;border-bottom:1px solid #eee">'
-                f'<a href="{url}" style="color:#0366d6;text-decoration:none;font-weight:500">'
-                f"{title}</a></td>"
-                f'<td style="padding:8px 12px;border-bottom:1px solid #eee;'
-                f'color:#555;font-size:13px">{repo}</td>'
-                f'<td style="padding:8px 12px;border-bottom:1px solid #eee;'
-                f'color:#555;font-size:13px">{labels}</td>'
-                f'<td style="padding:8px 12px;border-bottom:1px solid #eee;'
-                f'color:#888;font-size:12px">{created}</td>'
+                f'<a href="{url}" style="color:#0366d6;text-decoration:none;font-weight:500">{title}</a></td>'
+                f'<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#555;font-size:13px">{repo}</td>'
+                f'<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#555;font-size:13px">{labels}</td>'
+                f'<td style="padding:8px 12px;border-bottom:1px solid #eee;color:#888;font-size:12px">{created}</td>'
                 f"</tr>"
             )
 
         category_sections += (
             f'<h3 style="margin-top:32px;color:#24292e">{category}</h3>'
             f'<table width="100%" cellpadding="0" cellspacing="0" '
-            f'style="border-collapse:collapse;border:1px solid #e1e4e8;'
-            f'border-radius:6px;overflow:hidden">'
+            f'style="border-collapse:collapse;border:1px solid #e1e4e8;border-radius:6px;overflow:hidden">'
             f'<thead><tr style="background:#f6f8fa">'
             f'<th style="padding:8px 12px;text-align:left;font-size:13px;color:#586069">Issue</th>'
             f'<th style="padding:8px 12px;text-align:left;font-size:13px;color:#586069">Repository</th>'
             f'<th style="padding:8px 12px;text-align:left;font-size:13px;color:#586069">Labels</th>'
             f'<th style="padding:8px 12px;text-align:left;font-size:13px;color:#586069">Posted</th>'
-            f"</tr></thead>"
-            f"<tbody>{issue_rows}</tbody>"
-            f"</table>"
+            f"</tr></thead><tbody>{issue_rows}</tbody></table>"
         )
 
-    # No new issues fallback
     if total_new == 0:
         category_sections = (
             '<div style="text-align:center;padding:40px;color:#888">'
             '<p style="font-size:18px">😴 No new issues in the last 24 hours.</p>'
-            '<p>Check back tomorrow!</p>'
-            "</div>"
+            '<p>Check back tomorrow!</p></div>'
         )
 
     html = f"""<!DOCTYPE html>
 <html>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
              max-width:800px;margin:0 auto;padding:20px;color:#24292e">
-
-    <div style="background:#24292e;color:white;padding:20px 24px;
-                border-radius:8px;margin-bottom:24px">
+    <div style="background:#24292e;color:white;padding:20px 24px;border-radius:8px;margin-bottom:24px">
         <h1 style="margin:0;font-size:20px">🔔 GitHub Issue Digest</h1>
-        <p style="margin:6px 0 0;color:#aaa;font-size:14px">
-            {today} · {total_new} new issue(s) in the last 24 hours
-        </p>
+        <p style="margin:6px 0 0;color:#aaa;font-size:14px">{today} · {total_new} new issue(s) in the last 24 hours</p>
     </div>
-
     <h2 style="color:#24292e">📊 Summary</h2>
     <table width="100%" cellpadding="0" cellspacing="0"
-           style="border-collapse:collapse;border:1px solid #e1e4e8;
-                  border-radius:6px;overflow:hidden">
-        <thead>
-            <tr style="background:#f6f8fa">
-                <th style="padding:8px 12px;text-align:left;font-size:13px;color:#586069">Category</th>
-                <th style="padding:8px 12px;text-align:center;font-size:13px;color:#586069">Total Open</th>
-                <th style="padding:8px 12px;text-align:center;font-size:13px;color:#586069">New (24h)</th>
-            </tr>
-        </thead>
+           style="border-collapse:collapse;border:1px solid #e1e4e8;border-radius:6px;overflow:hidden">
+        <thead><tr style="background:#f6f8fa">
+            <th style="padding:8px 12px;text-align:left;font-size:13px;color:#586069">Category</th>
+            <th style="padding:8px 12px;text-align:center;font-size:13px;color:#586069">Total Open</th>
+            <th style="padding:8px 12px;text-align:center;font-size:13px;color:#586069">New (24h)</th>
+        </tr></thead>
         <tbody>{summary_rows}</tbody>
     </table>
-
     <h2 style="margin-top:32px;color:#24292e">🆕 New Issues (Last 24 Hours)</h2>
     {category_sections}
-
     <hr style="margin-top:40px;border:none;border-top:1px solid #eee">
     <p style="color:#888;font-size:12px;text-align:center">
-        Sent automatically by your GitHub Actions bot in
-        <a href="https://github.com/JohnMartin0301/my-contributions"
-           style="color:#0366d6">JohnMartin0301/my-contributions</a>
+        Sent automatically by ContribPilot —
+        <a href="https://github.com/JohnMartin0301/ContribPilot" style="color:#0366d6">
+        JohnMartin0301/ContribPilot</a>
     </p>
 </body>
 </html>"""
-
     return html
 
 
-# ─────────────────────────────────────────────
-# STEP 6: SEND THE EMAIL
-# Uses Gmail's SMTP server to deliver the email.
-# ─────────────────────────────────────────────
+# ── Send Email ────────────────────────────────────────────────────
 
 def send_email(html_content, total_new):
-    """
-    Sends the HTML email via Gmail SMTP.
-
-    SMTP (Simple Mail Transfer Protocol) is the
-    standard way programs send emails.
-
-    Credentials are pulled from GitHub Secrets —
-    never stored directly in this file.
-    """
+    # Sends the HTML digest via Gmail SMTP on port 587
     today   = datetime.now().strftime("%b %d, %Y")
     subject = f"🔔 GitHub Issues Digest — {total_new} new issue(s) · {today}"
 
@@ -467,7 +341,7 @@ def send_email(html_content, total_new):
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.ehlo()
-            server.starttls()  # Encrypt the connection
+            server.starttls()
             server.login(GMAIL_SENDER, GMAIL_PASSWORD)
             server.sendmail(GMAIL_SENDER, GMAIL_RECEIVER, msg.as_string())
         print("  ✅ Email sent successfully!")
@@ -476,24 +350,19 @@ def send_email(html_content, total_new):
         raise
 
 
-# ─────────────────────────────────────────────
-# STEP 7: MAIN — runs everything in order
-# ─────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────
 
 def main():
     print("🚀 Starting GitHub Issue Notifier...\n")
     print(f"🕘 Running at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f"📅 Looking for issues created in the last 24 hours\n")
 
-    # 1. Fetch all matching issues from GitHub
     new_by_category, totals_by_category = fetch_all_issues()
     total_new = sum(len(v) for v in new_by_category.values())
 
-    # 2. Send Discord notification (quick summary)
     discord_payload = build_discord_message(new_by_category, totals_by_category)
     send_discord(discord_payload)
 
-    # 3. Build and send Gmail digest (full detailed report)
     print("\n📝 Building email...")
     html_content = build_email(new_by_category, totals_by_category)
     send_email(html_content, total_new)
